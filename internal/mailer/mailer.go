@@ -55,7 +55,9 @@ func (m *SMTPMailer) Send(ctx context.Context, a domain.Aporte) error {
 	return fmt.Errorf("todos los intentos SMTP fallaron: %w", lastErr)
 }
 
-// sendOnce realiza un único intento de envío SMTP respetando el contexto.
+// sendOnce realiza un único intento de envío SMTP.
+// Usa su propio contexto con timeout para no depender del contexto del request HTTP,
+// pero sigue respetando la cancelación del padre (ej: cliente desconectado).
 func (m *SMTPMailer) sendOnce(ctx context.Context, a domain.Aporte) error {
 	subject := fmt.Sprintf("Confirmación de aporte - %s", a.Mes)
 	html := buildHTMLTemplate(a)
@@ -63,6 +65,10 @@ func (m *SMTPMailer) sendOnce(ctx context.Context, a domain.Aporte) error {
 	msg := buildMessage(m.User, a.Correo, subject, html, plain)
 
 	auth := smtp.PlainAuth("", m.User, m.Password, "smtp.gmail.com")
+
+	// Timeout propio por intento, independiente del contexto HTTP
+	attemptCtx, cancel := context.WithTimeout(context.Background(), m.Timeout)
+	defer cancel()
 
 	type result struct{ err error }
 	ch := make(chan result, 1)
@@ -73,7 +79,9 @@ func (m *SMTPMailer) sendOnce(ctx context.Context, a domain.Aporte) error {
 
 	select {
 	case <-ctx.Done():
-		return fmt.Errorf("timeout SMTP: %w", ctx.Err())
+		return fmt.Errorf("request cancelado: %w", ctx.Err())
+	case <-attemptCtx.Done():
+		return fmt.Errorf("timeout SMTP (%s): %w", m.Timeout, attemptCtx.Err())
 	case res := <-ch:
 		return res.err
 	}

@@ -71,11 +71,7 @@ func (h *AporteHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		FechaLimite:     req.FechaLimite,
 	}
 
-	timeout := time.Duration(h.smtpTimeoutSec) * time.Second
-	ctx, cancel := context.WithTimeout(r.Context(), timeout)
-	defer cancel()
-
-	if err := h.service.ProcesarAporte(ctx, aporte); err != nil {
+	if err := h.service.ProcesarAporte(r.Context(), aporte); err != nil {
 		// Errores de validación de dominio → 400; otros → 500
 		if strings.HasPrefix(err.Error(), "validación fallida:") {
 			jsonResponse(w, http.StatusBadRequest, "error", err.Error())

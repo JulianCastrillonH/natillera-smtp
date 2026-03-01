@@ -46,7 +46,7 @@ func main() {
 		Addr:         ":" + cfg.Port,
 		Handler:      mux,
 		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		WriteTimeout: 90 * time.Second,
 		IdleTimeout:  30 * time.Second,
 	}
 

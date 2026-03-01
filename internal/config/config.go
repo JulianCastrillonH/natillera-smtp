@@ -43,7 +43,7 @@ func Load() (*Config, error) {
 		cfg.Port = "8080"
 	}
 
-	cfg.SMTPTimeoutSeconds = 10
+	cfg.SMTPTimeoutSeconds = 30
 	if s := os.Getenv("SMTP_TIMEOUT_SECONDS"); s != "" {
 		if n, err := strconv.Atoi(s); err == nil && n > 0 {
 			cfg.SMTPTimeoutSeconds = n
