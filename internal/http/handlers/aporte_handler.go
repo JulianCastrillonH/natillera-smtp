@@ -80,7 +80,8 @@ func (h *AporteHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(err.Error(), "validación fallida:") {
 			jsonResponse(w, http.StatusBadRequest, "error", err.Error())
 		} else {
-			jsonResponse(w, http.StatusInternalServerError, "error", "error procesando aporte")
+			// DEBUG: exponer error real para diagnóstico — remover en producción
+			jsonResponse(w, http.StatusInternalServerError, "error", err.Error())
 		}
 		return
 	}
