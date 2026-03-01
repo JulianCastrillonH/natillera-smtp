@@ -9,12 +9,32 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	_ "embed"
 
 	"natillera/internal/domain"
 )
+
+// formatCOP formatea un valor monetario con separador de miles (.) y decimal (,)
+// Ejemplo: 2200000.5 → "2.200.000,50"
+func formatCOP(f float64) string {
+	s := fmt.Sprintf("%.2f", f)
+	dot := strings.Index(s, ".")
+	intPart, dec := s[:dot], s[dot+1:]
+
+	var b strings.Builder
+	for i, c := range intPart {
+		if i > 0 && (len(intPart)-i)%3 == 0 {
+			b.WriteByte('.')
+		}
+		b.WriteRune(c)
+	}
+	b.WriteByte(',')
+	b.WriteString(dec)
+	return b.String()
+}
 
 //go:embed assets/logo.png
 var logoBytes []byte
@@ -121,9 +141,9 @@ func (m *BrevoMailer) sendOnce(a domain.Aporte) error {
 // buildPlainText genera la versión texto plano del correo (fallback).
 func buildPlainText(a domain.Aporte) string {
 	return fmt.Sprintf(
-		"Hola %s,\n\nHemos recibido tu aporte del mes %s.\n\nFecha de pago:    %s\nMonto:            $%.2f\nAporte rifa:      $%.2f\nInterés generado: $%.2f\nSemanas en mora:  %d\nTotal a pagar:    $%.2f\nFecha límite:     %s\n\nGracias por tu compromiso con la Natillera.",
+		"Hola %s,\n\nHemos recibido tu aporte del mes %s.\n\nFecha de pago:    %s\nMonto:            $%s\nAporte rifa:      $%s\nInterés generado: $%s\nSemanas en mora:  %d\nTotal a pagar:    $%s\nFecha límite:     %s\n\nGracias por tu compromiso con la Natillera.",
 		a.PrimerNombre, a.Mes,
-		a.FechaPago, a.Monto, a.AporteRifa, a.InteresGenerado, a.SemanasMora, a.TotalAPagar, a.FechaLimite,
+		a.FechaPago, formatCOP(a.Monto), formatCOP(a.AporteRifa), formatCOP(a.InteresGenerado), a.SemanasMora, formatCOP(a.TotalAPagar), a.FechaLimite,
 	)
 }
 
@@ -154,23 +174,23 @@ func buildHTMLTemplate(a domain.Aporte, logoSrc string) string {
                 </tr>
                 <tr>
                   <td style="padding:12px 16px;color:#666;font-size:13px;">Monto</td>
-                  <td style="padding:12px 16px;text-align:right;font-weight:bold;">$%.2f</td>
+                  <td style="padding:12px 16px;text-align:right;font-weight:bold;">$%s</td>
                 </tr>
                 <tr style="background:#f9f9f9;">
                   <td style="padding:12px 16px;color:#666;font-size:13px;">Aporte rifa</td>
-                  <td style="padding:12px 16px;text-align:right;font-weight:bold;">$%.2f</td>
+                  <td style="padding:12px 16px;text-align:right;font-weight:bold;">$%s</td>
                 </tr>
                 <tr>
                   <td style="padding:12px 16px;color:#666;font-size:13px;">Interés generado</td>
-                  <td style="padding:12px 16px;text-align:right;font-weight:bold;">$%.2f</td>
+                  <td style="padding:12px 16px;text-align:right;font-weight:bold;">$%s</td>
                 </tr>
                 <tr style="background:#f9f9f9;">
                   <td style="padding:12px 16px;color:#666;font-size:13px;">Semanas en mora</td>
                   <td style="padding:12px 16px;text-align:right;font-weight:bold;">%d</td>
                 </tr>
                 <tr style="background:#1a7a4a;">
-                  <td style="padding:14px 16px;color:#ffffff;font-weight:bold;">Total a pagar</td>
-                  <td style="padding:14px 16px;text-align:right;color:#ffffff;font-weight:bold;font-size:16px;">$%.2f</td>
+                  <td style="padding:14px 16px;color:#ffffff;font-weight:bold;">Pago total</td>
+                  <td style="padding:14px 16px;text-align:right;color:#ffffff;font-weight:bold;font-size:16px;">$%s</td>
                 </tr>
               </table>
               <p style="margin:0 0 8px;color:#555;">Fecha límite de pago: <strong>%s</strong></p>
@@ -192,7 +212,7 @@ func buildHTMLTemplate(a domain.Aporte, logoSrc string) string {
 		logoSrc,
 		a.PrimerNombre, a.Mes,
 		a.FechaPago,
-		a.Monto, a.AporteRifa, a.InteresGenerado, a.SemanasMora, a.TotalAPagar,
+		formatCOP(a.Monto), formatCOP(a.AporteRifa), formatCOP(a.InteresGenerado), a.SemanasMora, formatCOP(a.TotalAPagar),
 		a.FechaLimite,
 		logoSrc,
 	)
