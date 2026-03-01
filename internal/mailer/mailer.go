@@ -17,6 +17,21 @@ import (
 	"natillera/internal/domain"
 )
 
+var meses = map[string]string{
+	"1": "Enero", "2": "Febrero", "3": "Marzo", "4": "Abril",
+	"5": "Mayo", "6": "Junio", "7": "Julio", "8": "Agosto",
+	"9": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre",
+}
+
+// nombreMes convierte un número de mes ("1"–"12") a su nombre en español.
+// Si el valor ya es un nombre o no se reconoce, lo retorna sin cambios.
+func nombreMes(mes string) string {
+	if nombre, ok := meses[strings.TrimSpace(mes)]; ok {
+		return nombre
+	}
+	return mes
+}
+
 // formatCOP formatea un valor monetario con separador de miles (.) y decimal (,)
 // Ejemplo: 2200000.5 → "2.200.000,50"
 func formatCOP(f float64) string {
@@ -142,7 +157,7 @@ func (m *BrevoMailer) sendOnce(a domain.Aporte) error {
 func buildPlainText(a domain.Aporte) string {
 	return fmt.Sprintf(
 		"Hola %s,\n\nHemos recibido tu aporte del mes %s.\n\nFecha de pago:    %s\nMonto:            $%s\nAporte rifa:      $%s\nInterés generado: $%s\nSemanas en mora:  %d\nTotal a pagar:    $%s\nFecha límite:     %s\n\nGracias por tu compromiso con la Natillera.",
-		a.PrimerNombre, a.Mes,
+		a.PrimerNombre, nombreMes(a.Mes),
 		a.FechaPago, formatCOP(a.Monto), formatCOP(a.AporteRifa), formatCOP(a.InteresGenerado), a.SemanasMora, formatCOP(a.TotalAPagar), a.FechaLimite,
 	)
 }
@@ -210,7 +225,7 @@ func buildHTMLTemplate(a domain.Aporte, logoSrc string) string {
 </body>
 </html>`,
 		logoSrc,
-		a.PrimerNombre, a.Mes,
+		a.PrimerNombre, nombreMes(a.Mes),
 		a.FechaPago,
 		formatCOP(a.Monto), formatCOP(a.AporteRifa), formatCOP(a.InteresGenerado), a.SemanasMora, formatCOP(a.TotalAPagar),
 		a.FechaLimite,
