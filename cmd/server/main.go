@@ -19,15 +19,17 @@ func main() {
 	}
 
 	smtpMailer := &mailer.SMTPMailer{
-		User:     cfg.GmailUser,
-		Password: cfg.GmailAppPassword,
+		Host:     cfg.SMTPHost,
+		Port:     cfg.SMTPPort,
+		User:     cfg.SMTPUser,
+		Password: cfg.SMTPPassword,
 		Timeout:  time.Duration(cfg.SMTPTimeoutSeconds) * time.Second,
 	}
 
 	aporteService := service.NewAporteService(smtpMailer)
 	aporteHandler := handlers.NewAporteHandler(aporteService, cfg.SMTPTimeoutSeconds)
 
-	envVars := []string{"GMAIL_USER", "GMAIL_APP_PASSWORD", "WEBHOOK_SECRET"}
+	envVars := []string{"SMTP_USER", "SMTP_PASSWORD", "WEBHOOK_SECRET"}
 
 	// Pipeline de middlewares para el webhook: Logging → Auth → JSONContentType → Handler
 	webhookChain := middleware.Logging(

@@ -6,11 +6,15 @@ services:
     buildCommand: go build -trimpath -ldflags="-s -w" -o server ./cmd/server
     startCommand: ./server
     envVars:
-      - key: GMAIL_USER
+      - key: SMTP_USER
         sync: false
-      - key: GMAIL_APP_PASSWORD
+      - key: SMTP_PASSWORD
         sync: false
       - key: WEBHOOK_SECRET
         sync: false
+      - key: SMTP_HOST
+        value: "smtp-mail.outlook.com"
+      - key: SMTP_PORT
+        value: "587"
       - key: SMTP_TIMEOUT_SECONDS
-        value: "10"
+        value: "30"

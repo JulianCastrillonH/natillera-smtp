@@ -27,8 +27,11 @@ type Mailer interface {
 	Send(ctx context.Context, a domain.Aporte) error
 }
 
-// SMTPMailer implementa Mailer usando Gmail SMTP.
+// SMTPMailer implementa Mailer con soporte para cualquier proveedor SMTP.
+// Puerto 587 → STARTTLS  |  Puerto 465 → SSL directo
 type SMTPMailer struct {
+	Host     string
+	Port     int
 	User     string
 	Password string
 	Timeout  time.Duration
@@ -69,11 +72,20 @@ func (m *SMTPMailer) sendOnce(ctx context.Context, a domain.Aporte) error {
 	attemptCtx, cancel := context.WithTimeout(context.Background(), m.Timeout)
 	defer cancel()
 
+	addr := fmt.Sprintf("%s:%d", m.Host, m.Port)
+
 	type result struct{ err error }
 	ch := make(chan result, 1)
 	go func() {
-		// Puerto 465 con SSL directo — más compatible con hosts que bloquean 587
-		ch <- result{sendSSL(m.User, m.Password, a.Correo, msg)}
+		var err error
+		if m.Port == 465 {
+			err = sendSSL(m.Host, addr, m.User, m.Password, a.Correo, msg)
+		} else {
+			// Puerto 587 u otro → STARTTLS
+			auth := smtp.PlainAuth("", m.User, m.Password, m.Host)
+			err = smtp.SendMail(addr, auth, m.User, []string{a.Correo}, msg)
+		}
+		ch <- result{err}
 	}()
 
 	select {
@@ -87,10 +99,10 @@ func (m *SMTPMailer) sendOnce(ctx context.Context, a domain.Aporte) error {
 }
 
 // sendSSL envía el correo usando SMTP sobre SSL en el puerto 465.
-func sendSSL(user, password, to string, msg []byte) error {
-	tlsCfg := &tls.Config{ServerName: "smtp.gmail.com"}
+func sendSSL(host, addr, user, password, to string, msg []byte) error {
+	tlsCfg := &tls.Config{ServerName: host}
 
-	conn, err := tls.Dial("tcp", "smtp.gmail.com:465", tlsCfg)
+	conn, err := tls.Dial("tcp", addr, tlsCfg)
 	if err != nil {
 		return fmt.Errorf("tls.Dial: %w", err)
 	}

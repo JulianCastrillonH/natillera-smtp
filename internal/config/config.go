@@ -9,8 +9,10 @@ import (
 // Config contiene toda la configuración del servicio leída desde variables de entorno.
 type Config struct {
 	Port               string
-	GmailUser          string
-	GmailAppPassword   string
+	SMTPHost           string
+	SMTPPort           int
+	SMTPUser           string
+	SMTPPassword       string
 	WebhookSecret      string
 	SMTPTimeoutSeconds int
 }
@@ -19,16 +21,15 @@ type Config struct {
 func Load() (*Config, error) {
 	cfg := &Config{}
 
-	cfg.GmailUser = os.Getenv("GMAIL_USER")
-	cfg.GmailAppPassword = os.Getenv("GMAIL_APP_PASSWORD")
+	cfg.SMTPUser = os.Getenv("SMTP_USER")
+	cfg.SMTPPassword = os.Getenv("SMTP_PASSWORD")
 	cfg.WebhookSecret = os.Getenv("WEBHOOK_SECRET")
 
-	// Variables críticas — el servicio no puede operar sin ellas
 	missing := []string{}
 	for key, val := range map[string]string{
-		"GMAIL_USER":         cfg.GmailUser,
-		"GMAIL_APP_PASSWORD": cfg.GmailAppPassword,
-		"WEBHOOK_SECRET":     cfg.WebhookSecret,
+		"SMTP_USER":     cfg.SMTPUser,
+		"SMTP_PASSWORD": cfg.SMTPPassword,
+		"WEBHOOK_SECRET": cfg.WebhookSecret,
 	} {
 		if val == "" {
 			missing = append(missing, key)
@@ -41,6 +42,19 @@ func Load() (*Config, error) {
 	cfg.Port = os.Getenv("PORT")
 	if cfg.Port == "" {
 		cfg.Port = "8080"
+	}
+
+	// Defaults: Outlook STARTTLS
+	cfg.SMTPHost = os.Getenv("SMTP_HOST")
+	if cfg.SMTPHost == "" {
+		cfg.SMTPHost = "smtp-mail.outlook.com"
+	}
+
+	cfg.SMTPPort = 587
+	if s := os.Getenv("SMTP_PORT"); s != "" {
+		if n, err := strconv.Atoi(s); err == nil && n > 0 {
+			cfg.SMTPPort = n
+		}
 	}
 
 	cfg.SMTPTimeoutSeconds = 30
