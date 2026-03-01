@@ -19,44 +19,42 @@ import (
 //go:embed assets/logo.png
 var logoBytes []byte
 
-const (
-	logoCID    = "logo@natillera"
-	resendURL  = "https://api.resend.com/emails"
-)
+const brevoURL = "https://api.brevo.com/v3/smtp/email"
 
 // Mailer define el contrato para enviar correos.
 type Mailer interface {
 	Send(ctx context.Context, a domain.Aporte) error
 }
 
-// ResendMailer implementa Mailer usando la API HTTP de Resend.com.
-type ResendMailer struct {
-	APIKey  string
-	From    string
-	Timeout time.Duration
+// BrevoMailer implementa Mailer usando la API HTTP de Brevo.
+type BrevoMailer struct {
+	APIKey      string
+	SenderEmail string
+	SenderName  string
+	Timeout     time.Duration
 }
 
-// resendRequest es el payload JSON que espera la API de Resend.
-type resendRequest struct {
-	From        string             `json:"from"`
-	To          []string           `json:"to"`
-	Subject     string             `json:"subject"`
-	HTML        string             `json:"html"`
-	Text        string             `json:"text"`
-	Attachments []resendAttachment `json:"attachments,omitempty"`
+// brevoRequest es el payload JSON que espera la API de Brevo.
+type brevoRequest struct {
+	Sender      brevoSender      `json:"sender"`
+	To          []brevoRecipient `json:"to"`
+	Subject     string           `json:"subject"`
+	HTMLContent string           `json:"htmlContent"`
+	TextContent string           `json:"textContent"`
 }
 
-// resendAttachment representa un adjunto inline (logo embebido via CID).
-type resendAttachment struct {
-	Filename    string `json:"filename"`
-	Content     string `json:"content"`
-	ContentType string `json:"content_type"`
-	ContentID   string `json:"content_id,omitempty"`
-	Inline      bool   `json:"inline,omitempty"`
+type brevoSender struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+type brevoRecipient struct {
+	Email string `json:"email"`
+	Name  string `json:"name,omitempty"`
 }
 
 // Send envía el correo con retry (máximo 2 intentos).
-func (m *ResendMailer) Send(ctx context.Context, a domain.Aporte) error {
+func (m *BrevoMailer) Send(ctx context.Context, a domain.Aporte) error {
 	const maxRetries = 2
 	var lastErr error
 
@@ -65,7 +63,7 @@ func (m *ResendMailer) Send(ctx context.Context, a domain.Aporte) error {
 		if lastErr == nil {
 			return nil
 		}
-		log.Printf("level=warn event=resend_retry attempt=%d/%d id_aporte=%s err=%v", attempt, maxRetries, a.IDAporte, lastErr)
+		log.Printf("level=warn event=brevo_retry attempt=%d/%d id_aporte=%s err=%v", attempt, maxRetries, a.IDAporte, lastErr)
 
 		select {
 		case <-ctx.Done():
@@ -77,27 +75,19 @@ func (m *ResendMailer) Send(ctx context.Context, a domain.Aporte) error {
 	return fmt.Errorf("todos los intentos fallaron: %w", lastErr)
 }
 
-// sendOnce realiza un único intento de envío via Resend API.
-func (m *ResendMailer) sendOnce(a domain.Aporte) error {
+// sendOnce realiza un único intento de envío via Brevo API.
+func (m *BrevoMailer) sendOnce(a domain.Aporte) error {
 	subject := fmt.Sprintf("Confirmación de aporte - %s", a.Mes)
-	html := buildHTMLTemplate(a)
-	plain := buildPlainText(a)
 
-	payload := resendRequest{
-		From:    m.From,
-		To:      []string{a.Correo},
-		Subject: subject,
-		HTML:    html,
-		Text:    plain,
-		Attachments: []resendAttachment{
-			{
-				Filename:    "logo.png",
-				Content:     base64.StdEncoding.EncodeToString(logoBytes),
-				ContentType: "image/png",
-				ContentID:   logoCID,
-				Inline:      true,
-			},
-		},
+	// El logo se incrusta como data URI para máxima compatibilidad entre clientes de correo
+	logoDataURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(logoBytes)
+
+	payload := brevoRequest{
+		Sender:      brevoSender{Name: m.SenderName, Email: m.SenderEmail},
+		To:          []brevoRecipient{{Email: a.Correo, Name: a.PrimerNombre}},
+		Subject:     subject,
+		HTMLContent: buildHTMLTemplate(a, logoDataURI),
+		TextContent: buildPlainText(a),
 	}
 
 	body, err := json.Marshal(payload)
@@ -106,12 +96,13 @@ func (m *ResendMailer) sendOnce(a domain.Aporte) error {
 	}
 
 	client := &http.Client{Timeout: m.Timeout}
-	req, err := http.NewRequest(http.MethodPost, resendURL, bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, brevoURL, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("http.NewRequest: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+m.APIKey)
+	req.Header.Set("api-key", m.APIKey)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -121,7 +112,7 @@ func (m *ResendMailer) sendOnce(a domain.Aporte) error {
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("resend API status %d: %s", resp.StatusCode, string(respBody))
+		return fmt.Errorf("brevo API status %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	return nil
@@ -137,7 +128,8 @@ func buildPlainText(a domain.Aporte) string {
 }
 
 // buildHTMLTemplate genera el cuerpo HTML del correo.
-func buildHTMLTemplate(a domain.Aporte) string {
+// El logo se pasa como data URI para no depender de adjuntos ni URLs externas.
+func buildHTMLTemplate(a domain.Aporte, logoSrc string) string {
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -148,7 +140,7 @@ func buildHTMLTemplate(a domain.Aporte) string {
         <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
           <tr>
             <td style="background:#1a7a4a;padding:24px 40px;text-align:center;">
-              <img src="cid:%s" alt="Natillera" style="max-height:64px;max-width:200px;display:block;margin:0 auto;" />
+              <img src="%s" alt="Natillera" style="max-height:64px;max-width:200px;display:block;margin:0 auto;" />
             </td>
           </tr>
           <tr>
@@ -187,7 +179,7 @@ func buildHTMLTemplate(a domain.Aporte) string {
           </tr>
           <tr>
             <td style="background:#f0f0f0;padding:20px 40px;text-align:center;border-top:1px solid #e0e0e0;">
-              <img src="cid:%s" alt="Natillera" style="max-height:32px;max-width:100px;display:block;margin:0 auto 8px;" />
+              <img src="%s" alt="Natillera" style="max-height:32px;max-width:100px;display:block;margin:0 auto 8px;" />
               <p style="margin:0;font-size:12px;color:#999;">© 2026 Natillera · Todos los derechos reservados</p>
             </td>
           </tr>
@@ -197,11 +189,11 @@ func buildHTMLTemplate(a domain.Aporte) string {
   </table>
 </body>
 </html>`,
-		logoCID,
+		logoSrc,
 		a.PrimerNombre, a.Mes,
 		a.FechaPago,
 		a.Monto, a.AporteRifa, a.InteresGenerado, a.SemanasMora, a.TotalAPagar,
 		a.FechaLimite,
-		logoCID,
+		logoSrc,
 	)
 }

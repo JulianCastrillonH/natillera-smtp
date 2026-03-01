@@ -9,8 +9,9 @@ import (
 // Config contiene toda la configuración del servicio leída desde variables de entorno.
 type Config struct {
 	Port               string
-	ResendAPIKey       string
-	ResendFrom         string
+	BrevoAPIKey        string
+	BrevoSenderEmail   string
+	BrevoSenderName    string
 	WebhookSecret      string
 	SMTPTimeoutSeconds int
 }
@@ -19,13 +20,15 @@ type Config struct {
 func Load() (*Config, error) {
 	cfg := &Config{}
 
-	cfg.ResendAPIKey = os.Getenv("RESEND_API_KEY")
+	cfg.BrevoAPIKey = os.Getenv("BREVO_API_KEY")
+	cfg.BrevoSenderEmail = os.Getenv("BREVO_SENDER_EMAIL")
 	cfg.WebhookSecret = os.Getenv("WEBHOOK_SECRET")
 
 	missing := []string{}
 	for key, val := range map[string]string{
-		"RESEND_API_KEY": cfg.ResendAPIKey,
-		"WEBHOOK_SECRET": cfg.WebhookSecret,
+		"BREVO_API_KEY":      cfg.BrevoAPIKey,
+		"BREVO_SENDER_EMAIL": cfg.BrevoSenderEmail,
+		"WEBHOOK_SECRET":     cfg.WebhookSecret,
 	} {
 		if val == "" {
 			missing = append(missing, key)
@@ -40,10 +43,9 @@ func Load() (*Config, error) {
 		cfg.Port = "8080"
 	}
 
-	// Para pruebas sin dominio verificado usar: onboarding@resend.dev
-	cfg.ResendFrom = os.Getenv("RESEND_FROM")
-	if cfg.ResendFrom == "" {
-		cfg.ResendFrom = "Natillera <onboarding@resend.dev>"
+	cfg.BrevoSenderName = os.Getenv("BREVO_SENDER_NAME")
+	if cfg.BrevoSenderName == "" {
+		cfg.BrevoSenderName = "Natillera"
 	}
 
 	cfg.SMTPTimeoutSeconds = 30

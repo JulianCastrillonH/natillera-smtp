@@ -18,16 +18,17 @@ func main() {
 		log.Fatalf("level=fatal event=config_error err=%v", err)
 	}
 
-	resendMailer := &mailer.ResendMailer{
-		APIKey:  cfg.ResendAPIKey,
-		From:    cfg.ResendFrom,
-		Timeout: time.Duration(cfg.SMTPTimeoutSeconds) * time.Second,
+	brevoMailer := &mailer.BrevoMailer{
+		APIKey:      cfg.BrevoAPIKey,
+		SenderEmail: cfg.BrevoSenderEmail,
+		SenderName:  cfg.BrevoSenderName,
+		Timeout:     time.Duration(cfg.SMTPTimeoutSeconds) * time.Second,
 	}
 
-	aporteService := service.NewAporteService(resendMailer)
+	aporteService := service.NewAporteService(brevoMailer)
 	aporteHandler := handlers.NewAporteHandler(aporteService, cfg.SMTPTimeoutSeconds)
 
-	envVars := []string{"RESEND_API_KEY", "WEBHOOK_SECRET"}
+	envVars := []string{"BREVO_API_KEY", "BREVO_SENDER_EMAIL", "WEBHOOK_SECRET"}
 
 	// Pipeline de middlewares para el webhook: Logging → Auth → JSONContentType → Handler
 	webhookChain := middleware.Logging(
