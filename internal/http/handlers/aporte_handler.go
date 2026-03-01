@@ -4,27 +4,56 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"natillera/internal/domain"
 	"natillera/internal/service"
 )
 
-// aporteRequest es la representación JSON del payload recibido desde AppSheet.
-// Los tags coinciden exactamente con las claves que AppSheet envía en el body.
+// aporteRequest acepta todos los campos numéricos como string para tolerar
+// el formato colombiano que AppSheet puede enviar (ej: "220.000,00").
 type aporteRequest struct {
-	IDAporte        string  `json:"id_aporte"`
-	IDSocio         string  `json:"id_socio"`
-	PrimerNombre    string  `json:"primer_nombre"`
-	Correo          string  `json:"correo"`
-	Mes             string  `json:"mes"`
-	Monto           float64 `json:"monto"`
-	FechaPago       string  `json:"fecha_pago"`
-	SemanasMora     int     `json:"semanas_mora"`
-	InteresGenerado float64 `json:"interes_generado"`
-	TotalAPagar     float64 `json:"total_a_pagar"`
-	AporteRifa      float64 `json:"aporte_rifa"`
-	FechaLimite     string  `json:"fecha_limite"`
+	IDAporte        string `json:"id_aporte"`
+	IDSocio         string `json:"id_socio"`
+	PrimerNombre    string `json:"primer_nombre"`
+	Correo          string `json:"correo"`
+	Mes             string `json:"mes"`
+	Monto           string `json:"monto"`
+	FechaPago       string `json:"fecha_pago"`
+	SemanasMora     string `json:"semanas_mora"`
+	InteresGenerado string `json:"interes_generado"`
+	TotalAPagar     string `json:"total_a_pagar"`
+	AporteRifa      string `json:"aporte_rifa"`
+	FechaLimite     string `json:"fecha_limite"`
+}
+
+// parseCOP convierte un string numérico en formato colombiano o estándar a float64.
+// Soporta: "220.000,50" → 220000.50 | "220000.50" → 220000.50 | "220000" → 220000
+func parseCOP(s string) float64 {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0
+	}
+	if strings.Contains(s, ",") && strings.Contains(s, ".") {
+		// Formato colombiano: 220.000,50 → quitar punto, reemplazar coma por punto
+		s = strings.ReplaceAll(s, ".", "")
+		s = strings.ReplaceAll(s, ",", ".")
+	} else if strings.Contains(s, ",") {
+		// Solo coma como decimal: 0,50 → 0.50
+		s = strings.ReplaceAll(s, ",", ".")
+	}
+	v, _ := strconv.ParseFloat(s, 64)
+	return v
+}
+
+// parseInt convierte un string a int tolerando formato colombiano.
+func parseInt(s string) int {
+	s = strings.TrimSpace(s)
+	s = strings.ReplaceAll(s, ".", "")
+	s = strings.ReplaceAll(s, ",", "")
+	v, _ := strconv.Atoi(s)
+	return v
 }
 
 // AporteHandler gestiona las solicitudes HTTP del webhook de aportes.
@@ -45,7 +74,6 @@ func (h *AporteHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Limitar tamaño del body a 1 MB
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
 	var req aporteRequest
@@ -60,21 +88,19 @@ func (h *AporteHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		PrimerNombre:    req.PrimerNombre,
 		Correo:          req.Correo,
 		Mes:             req.Mes,
-		Monto:           req.Monto,
+		Monto:           parseCOP(req.Monto),
 		FechaPago:       req.FechaPago,
-		SemanasMora:     req.SemanasMora,
-		InteresGenerado: req.InteresGenerado,
-		TotalAPagar:     req.TotalAPagar,
-		AporteRifa:      req.AporteRifa,
+		SemanasMora:     parseInt(req.SemanasMora),
+		InteresGenerado: parseCOP(req.InteresGenerado),
+		TotalAPagar:     parseCOP(req.TotalAPagar),
+		AporteRifa:      parseCOP(req.AporteRifa),
 		FechaLimite:     req.FechaLimite,
 	}
 
 	if err := h.service.ProcesarAporte(r.Context(), aporte); err != nil {
-		// Errores de validación de dominio → 400; otros → 500
 		if strings.HasPrefix(err.Error(), "validación fallida:") {
 			jsonResponse(w, http.StatusBadRequest, "error", err.Error())
 		} else {
-			// DEBUG: exponer error real para diagnóstico — remover en producción
 			jsonResponse(w, http.StatusInternalServerError, "error", err.Error())
 		}
 		return
