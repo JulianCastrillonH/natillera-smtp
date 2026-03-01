@@ -11,49 +11,77 @@ import (
 	"natillera/internal/service"
 )
 
-// aporteRequest acepta todos los campos numéricos como string para tolerar
-// el formato colombiano que AppSheet puede enviar (ej: "220.000,00").
-type aporteRequest struct {
-	IDAporte        string `json:"id_aporte"`
-	IDSocio         string `json:"id_socio"`
-	PrimerNombre    string `json:"primer_nombre"`
-	Correo          string `json:"correo"`
-	Mes             string `json:"mes"`
-	Monto           string `json:"monto"`
-	FechaPago       string `json:"fecha_pago"`
-	SemanasMora     string `json:"semanas_mora"`
-	InteresGenerado string `json:"interes_generado"`
-	TotalAPagar     string `json:"total_a_pagar"`
-	AporteRifa      string `json:"aporte_rifa"`
-	FechaLimite     string `json:"fecha_limite"`
+// flexFloat acepta tanto número JSON como string con formato colombiano.
+// Soporta: 220000 | "220000" | "220.000,50" | "220.000"
+type flexFloat float64
+
+func (f *flexFloat) UnmarshalJSON(data []byte) error {
+	// Intentar como número JSON directo
+	var n float64
+	if err := json.Unmarshal(data, &n); err == nil {
+		*f = flexFloat(n)
+		return nil
+	}
+	// Intentar como string
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	*f = flexFloat(parseCOP(s))
+	return nil
 }
 
-// parseCOP convierte un string numérico en formato colombiano o estándar a float64.
-// Soporta: "220.000,50" → 220000.50 | "220000.50" → 220000.50 | "220000" → 220000
+// flexInt acepta tanto número JSON como string.
+type flexInt int
+
+func (i *flexInt) UnmarshalJSON(data []byte) error {
+	var n int
+	if err := json.Unmarshal(data, &n); err == nil {
+		*i = flexInt(n)
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	s = strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(s, ".", ""), ",", ""))
+	n, _ = strconv.Atoi(s)
+	*i = flexInt(n)
+	return nil
+}
+
+// parseCOP convierte un string en formato colombiano o estándar a float64.
+// "220.000,50" → 220000.50 | "220.000" → 220000 | "220000.50" → 220000.50
 func parseCOP(s string) float64 {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return 0
 	}
 	if strings.Contains(s, ",") && strings.Contains(s, ".") {
-		// Formato colombiano: 220.000,50 → quitar punto, reemplazar coma por punto
 		s = strings.ReplaceAll(s, ".", "")
 		s = strings.ReplaceAll(s, ",", ".")
 	} else if strings.Contains(s, ",") {
-		// Solo coma como decimal: 0,50 → 0.50
 		s = strings.ReplaceAll(s, ",", ".")
 	}
 	v, _ := strconv.ParseFloat(s, 64)
 	return v
 }
 
-// parseInt convierte un string a int tolerando formato colombiano.
-func parseInt(s string) int {
-	s = strings.TrimSpace(s)
-	s = strings.ReplaceAll(s, ".", "")
-	s = strings.ReplaceAll(s, ",", "")
-	v, _ := strconv.Atoi(s)
-	return v
+// aporteRequest recibe el payload de AppSheet.
+// Los campos numéricos usan tipos flex que aceptan número o string.
+type aporteRequest struct {
+	IDAporte        string    `json:"id_aporte"`
+	IDSocio         string    `json:"id_socio"`
+	PrimerNombre    string    `json:"primer_nombre"`
+	Correo          string    `json:"correo"`
+	Mes             string    `json:"mes"`
+	Monto           flexFloat `json:"monto"`
+	FechaPago       string    `json:"fecha_pago"`
+	SemanasMora     flexInt   `json:"semanas_mora"`
+	InteresGenerado flexFloat `json:"interes_generado"`
+	TotalAPagar     flexFloat `json:"total_a_pagar"`
+	AporteRifa      flexFloat `json:"aporte_rifa"`
+	FechaLimite     string    `json:"fecha_limite"`
 }
 
 // AporteHandler gestiona las solicitudes HTTP del webhook de aportes.
@@ -88,12 +116,12 @@ func (h *AporteHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		PrimerNombre:    req.PrimerNombre,
 		Correo:          req.Correo,
 		Mes:             req.Mes,
-		Monto:           parseCOP(req.Monto),
+		Monto:           float64(req.Monto),
 		FechaPago:       req.FechaPago,
-		SemanasMora:     parseInt(req.SemanasMora),
-		InteresGenerado: parseCOP(req.InteresGenerado),
-		TotalAPagar:     parseCOP(req.TotalAPagar),
-		AporteRifa:      parseCOP(req.AporteRifa),
+		SemanasMora:     int(req.SemanasMora),
+		InteresGenerado: float64(req.InteresGenerado),
+		TotalAPagar:     float64(req.TotalAPagar),
+		AporteRifa:      float64(req.AporteRifa),
 		FechaLimite:     req.FechaLimite,
 	}
 
