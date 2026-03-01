@@ -112,7 +112,7 @@ func (m *BrevoMailer) Send(ctx context.Context, a domain.Aporte) error {
 
 // sendOnce realiza un único intento de envío via Brevo API.
 func (m *BrevoMailer) sendOnce(a domain.Aporte) error {
-	subject := fmt.Sprintf("Confirmación de aporte - %s", a.Mes)
+	subject := fmt.Sprintf("Confirmación de aporte - %s", nombreMes(a.Mes))
 
 	// El logo se incrusta como data URI para máxima compatibilidad entre clientes de correo
 	logoDataURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(logoBytes)
@@ -227,7 +227,7 @@ func buildHTMLTemplate(a domain.Aporte, logoSrc string) string {
 		logoSrc,
 		a.PrimerNombre, nombreMes(a.Mes),
 		a.FechaPago,
-		formatCOP(a.Monto), formatCOP(a.AporteRifa), formatCOP(a.InteresGenerado), a.SemanasMora, formatCOP(a.TotalAPagar),
+		formatCOP(a.Monto), formatCOP(a.AporteRifa), a.SemanasMora, formatCOP(a.InteresGenerado), formatCOP(a.TotalAPagar),
 		a.FechaLimite,
 		logoSrc,
 	)

@@ -50,18 +50,30 @@ func (i *flexInt) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// parseCOP convierte un string en formato colombiano o estándar a float64.
-// "220.000,50" → 220000.50 | "220.000" → 220000 | "220000.50" → 220000.50
+// parseCOP convierte un string numérico en formato colombiano o estándar a float64.
+// Reglas:
+//   - "1.200.000,50" → 1200000.50  (punto=miles, coma=decimal)
+//   - "200.000"      → 200000       (3 dígitos tras el punto → separador de miles)
+//   - "200.5"        → 200.5        (1-2 dígitos → separador decimal)
+//   - "0,50"         → 0.50         (solo coma → decimal)
 func parseCOP(s string) float64 {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return 0
 	}
 	if strings.Contains(s, ",") && strings.Contains(s, ".") {
+		// Formato colombiano completo: 1.200.000,50
 		s = strings.ReplaceAll(s, ".", "")
 		s = strings.ReplaceAll(s, ",", ".")
 	} else if strings.Contains(s, ",") {
+		// Solo coma como decimal: 0,50
 		s = strings.ReplaceAll(s, ",", ".")
+	} else if strings.Contains(s, ".") {
+		// Solo punto: si el último segmento tiene 3 dígitos → miles
+		parts := strings.Split(s, ".")
+		if len(parts[len(parts)-1]) == 3 {
+			s = strings.ReplaceAll(s, ".", "")
+		}
 	}
 	v, _ := strconv.ParseFloat(s, 64)
 	return v
