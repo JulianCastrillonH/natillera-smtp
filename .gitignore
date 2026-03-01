@@ -1,0 +1,10 @@
+# Binario compilado
+server
+
+# Variables de entorno locales
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
