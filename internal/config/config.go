@@ -6,11 +6,14 @@ import (
 	"strconv"
 )
 
+const (
+	SMTPHost = "smtp-mail.outlook.com"
+	SMTPPort = 587
+)
+
 // Config contiene toda la configuración del servicio leída desde variables de entorno.
 type Config struct {
 	Port               string
-	SMTPHost           string
-	SMTPPort           int
 	SMTPUser           string
 	SMTPPassword       string
 	WebhookSecret      string
@@ -42,19 +45,6 @@ func Load() (*Config, error) {
 	cfg.Port = os.Getenv("PORT")
 	if cfg.Port == "" {
 		cfg.Port = "8080"
-	}
-
-	// Defaults: Outlook STARTTLS
-	cfg.SMTPHost = os.Getenv("SMTP_HOST")
-	if cfg.SMTPHost == "" {
-		cfg.SMTPHost = "smtp-mail.outlook.com"
-	}
-
-	cfg.SMTPPort = 587
-	if s := os.Getenv("SMTP_PORT"); s != "" {
-		if n, err := strconv.Atoi(s); err == nil && n > 0 {
-			cfg.SMTPPort = n
-		}
 	}
 
 	cfg.SMTPTimeoutSeconds = 30

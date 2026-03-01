@@ -19,8 +19,8 @@ func main() {
 	}
 
 	smtpMailer := &mailer.SMTPMailer{
-		Host:     cfg.SMTPHost,
-		Port:     cfg.SMTPPort,
+		Host:     config.SMTPHost,
+		Port:     config.SMTPPort,
 		User:     cfg.SMTPUser,
 		Password: cfg.SMTPPassword,
 		Timeout:  time.Duration(cfg.SMTPTimeoutSeconds) * time.Second,
