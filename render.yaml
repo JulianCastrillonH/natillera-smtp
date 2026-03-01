@@ -6,11 +6,9 @@ services:
     buildCommand: go build -trimpath -ldflags="-s -w" -o server ./cmd/server
     startCommand: ./server
     envVars:
-      - key: SMTP_USER
+      - key: RESEND_API_KEY
         sync: false
-      - key: SMTP_PASSWORD
+      - key: RESEND_FROM
         sync: false
       - key: WEBHOOK_SECRET
         sync: false
-      - key: SMTP_TIMEOUT_SECONDS
-        value: "30"

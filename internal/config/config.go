@@ -6,16 +6,11 @@ import (
 	"strconv"
 )
 
-const (
-	SMTPHost = "smtp-mail.outlook.com"
-	SMTPPort = 587
-)
-
 // Config contiene toda la configuración del servicio leída desde variables de entorno.
 type Config struct {
 	Port               string
-	SMTPUser           string
-	SMTPPassword       string
+	ResendAPIKey       string
+	ResendFrom         string
 	WebhookSecret      string
 	SMTPTimeoutSeconds int
 }
@@ -24,14 +19,12 @@ type Config struct {
 func Load() (*Config, error) {
 	cfg := &Config{}
 
-	cfg.SMTPUser = os.Getenv("SMTP_USER")
-	cfg.SMTPPassword = os.Getenv("SMTP_PASSWORD")
+	cfg.ResendAPIKey = os.Getenv("RESEND_API_KEY")
 	cfg.WebhookSecret = os.Getenv("WEBHOOK_SECRET")
 
 	missing := []string{}
 	for key, val := range map[string]string{
-		"SMTP_USER":     cfg.SMTPUser,
-		"SMTP_PASSWORD": cfg.SMTPPassword,
+		"RESEND_API_KEY": cfg.ResendAPIKey,
 		"WEBHOOK_SECRET": cfg.WebhookSecret,
 	} {
 		if val == "" {
@@ -45,6 +38,12 @@ func Load() (*Config, error) {
 	cfg.Port = os.Getenv("PORT")
 	if cfg.Port == "" {
 		cfg.Port = "8080"
+	}
+
+	// Para pruebas sin dominio verificado usar: onboarding@resend.dev
+	cfg.ResendFrom = os.Getenv("RESEND_FROM")
+	if cfg.ResendFrom == "" {
+		cfg.ResendFrom = "Natillera <onboarding@resend.dev>"
 	}
 
 	cfg.SMTPTimeoutSeconds = 30

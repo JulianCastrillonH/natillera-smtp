@@ -18,18 +18,16 @@ func main() {
 		log.Fatalf("level=fatal event=config_error err=%v", err)
 	}
 
-	smtpMailer := &mailer.SMTPMailer{
-		Host:     config.SMTPHost,
-		Port:     config.SMTPPort,
-		User:     cfg.SMTPUser,
-		Password: cfg.SMTPPassword,
-		Timeout:  time.Duration(cfg.SMTPTimeoutSeconds) * time.Second,
+	resendMailer := &mailer.ResendMailer{
+		APIKey:  cfg.ResendAPIKey,
+		From:    cfg.ResendFrom,
+		Timeout: time.Duration(cfg.SMTPTimeoutSeconds) * time.Second,
 	}
 
-	aporteService := service.NewAporteService(smtpMailer)
+	aporteService := service.NewAporteService(resendMailer)
 	aporteHandler := handlers.NewAporteHandler(aporteService, cfg.SMTPTimeoutSeconds)
 
-	envVars := []string{"SMTP_USER", "SMTP_PASSWORD", "WEBHOOK_SECRET"}
+	envVars := []string{"RESEND_API_KEY", "WEBHOOK_SECRET"}
 
 	// Pipeline de middlewares para el webhook: Logging → Auth → JSONContentType → Handler
 	webhookChain := middleware.Logging(
