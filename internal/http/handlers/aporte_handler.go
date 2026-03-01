@@ -11,20 +11,20 @@ import (
 )
 
 // aporteRequest es la representación JSON del payload recibido desde AppSheet.
-// Los tags json coinciden exactamente con los nombres de columna en AppSheet.
+// Los tags coinciden exactamente con las claves que AppSheet envía en el body.
 type aporteRequest struct {
-	IDAporte        string  `json:"ID Aporte"`
-	IDSocio         string  `json:"ID Socio"`
-	PrimerNombre    string  `json:"PrimerNombre"`
-	Correo          string  `json:"Correo"`
-	Mes             string  `json:"Mes"`
-	Monto           float64 `json:"Monto"`
-	FechaPago       string  `json:"FechaPago"`
-	SemanasMora     int     `json:"SemanasMora"`
-	InteresGenerado float64 `json:"InteresGenerado"`
-	TotalAPagar     float64 `json:"TotalAPagar"`
-	AporteRifa      float64 `json:"AporteRifa"`
-	FechaLimite     string  `json:"FechaLimite"`
+	IDAporte        string  `json:"id_aporte"`
+	IDSocio         string  `json:"id_socio"`
+	PrimerNombre    string  `json:"primer_nombre"`
+	Correo          string  `json:"correo"`
+	Mes             string  `json:"mes"`
+	Monto           float64 `json:"monto"`
+	FechaPago       string  `json:"fecha_pago"`
+	SemanasMora     int     `json:"semanas_mora"`
+	InteresGenerado float64 `json:"interes_generado"`
+	TotalAPagar     float64 `json:"total_a_pagar"`
+	AporteRifa      float64 `json:"aporte_rifa"`
+	FechaLimite     string  `json:"fecha_limite"`
 }
 
 // AporteHandler gestiona las solicitudes HTTP del webhook de aportes.
