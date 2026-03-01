@@ -3,6 +3,7 @@ package mailer
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"log"
@@ -64,8 +65,6 @@ func (m *SMTPMailer) sendOnce(ctx context.Context, a domain.Aporte) error {
 	plain := buildPlainText(a)
 	msg := buildMessage(m.User, a.Correo, subject, html, plain)
 
-	auth := smtp.PlainAuth("", m.User, m.Password, "smtp.gmail.com")
-
 	// Timeout propio por intento, independiente del contexto HTTP
 	attemptCtx, cancel := context.WithTimeout(context.Background(), m.Timeout)
 	defer cancel()
@@ -73,8 +72,8 @@ func (m *SMTPMailer) sendOnce(ctx context.Context, a domain.Aporte) error {
 	type result struct{ err error }
 	ch := make(chan result, 1)
 	go func() {
-		err := smtp.SendMail("smtp.gmail.com:587", auth, m.User, []string{a.Correo}, msg)
-		ch <- result{err}
+		// Puerto 465 con SSL directo — más compatible con hosts que bloquean 587
+		ch <- result{sendSSL(m.User, m.Password, a.Correo, msg)}
 	}()
 
 	select {
@@ -85,6 +84,42 @@ func (m *SMTPMailer) sendOnce(ctx context.Context, a domain.Aporte) error {
 	case res := <-ch:
 		return res.err
 	}
+}
+
+// sendSSL envía el correo usando SMTP sobre SSL en el puerto 465.
+func sendSSL(user, password, to string, msg []byte) error {
+	tlsCfg := &tls.Config{ServerName: "smtp.gmail.com"}
+
+	conn, err := tls.Dial("tcp", "smtp.gmail.com:465", tlsCfg)
+	if err != nil {
+		return fmt.Errorf("tls.Dial: %w", err)
+	}
+
+	client, err := smtp.NewClient(conn, "smtp.gmail.com")
+	if err != nil {
+		return fmt.Errorf("smtp.NewClient: %w", err)
+	}
+	defer client.Quit()
+
+	auth := smtp.PlainAuth("", user, password, "smtp.gmail.com")
+	if err = client.Auth(auth); err != nil {
+		return fmt.Errorf("smtp.Auth: %w", err)
+	}
+	if err = client.Mail(user); err != nil {
+		return fmt.Errorf("smtp.Mail: %w", err)
+	}
+	if err = client.Rcpt(to); err != nil {
+		return fmt.Errorf("smtp.Rcpt: %w", err)
+	}
+
+	w, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("smtp.Data: %w", err)
+	}
+	if _, err = w.Write(msg); err != nil {
+		return fmt.Errorf("smtp.Write: %w", err)
+	}
+	return w.Close()
 }
 
 // buildPlainText genera la versión texto plano del correo (fallback).
