@@ -60,14 +60,14 @@ func (m *SMTPMailer) sendOnce(ctx context.Context, a domain.Aporte) error {
 	subject := fmt.Sprintf("Confirmación de aporte - %s", a.Mes)
 	html := buildHTMLTemplate(a)
 	plain := buildPlainText(a)
-	msg := buildMessage(m.User, a.CorreoSocio, subject, html, plain)
+	msg := buildMessage(m.User, a.Correo, subject, html, plain)
 
 	auth := smtp.PlainAuth("", m.User, m.Password, "smtp.gmail.com")
 
 	type result struct{ err error }
 	ch := make(chan result, 1)
 	go func() {
-		err := smtp.SendMail("smtp.gmail.com:587", auth, m.User, []string{a.CorreoSocio}, msg)
+		err := smtp.SendMail("smtp.gmail.com:587", auth, m.User, []string{a.Correo}, msg)
 		ch <- result{err}
 	}()
 
