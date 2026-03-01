@@ -195,13 +195,13 @@ func buildHTMLTemplate(a domain.Aporte, logoSrc string) string {
                   <td style="padding:12px 16px;color:#666;font-size:13px;">Aporte rifa</td>
                   <td style="padding:12px 16px;text-align:right;font-weight:bold;">$%s</td>
                 </tr>
+				<tr style="background:#f9f9f9;">
+				  <td style="padding:12px 16px;color:#666;font-size:13px;">Semanas en mora</td>
+				  <td style="padding:12px 16px;text-align:right;font-weight:bold;">%d</td>
+				</tr>
                 <tr>
                   <td style="padding:12px 16px;color:#666;font-size:13px;">Interés generado</td>
                   <td style="padding:12px 16px;text-align:right;font-weight:bold;">$%s</td>
-                </tr>
-                <tr style="background:#f9f9f9;">
-                  <td style="padding:12px 16px;color:#666;font-size:13px;">Semanas en mora</td>
-                  <td style="padding:12px 16px;text-align:right;font-weight:bold;">%d</td>
                 </tr>
                 <tr style="background:#1a7a4a;">
                   <td style="padding:14px 16px;color:#ffffff;font-weight:bold;">Pago total</td>
