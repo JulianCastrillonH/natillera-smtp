@@ -1,10 +1,10 @@
 services:
   - type: web
     name: natillera-webhook
-    runtime: docker
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    runtime: go
     plan: free
+    buildCommand: go build -trimpath -ldflags="-s -w" -o server ./cmd/server
+    startCommand: ./server
     envVars:
       - key: GMAIL_USER
         sync: false
